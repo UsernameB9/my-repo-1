@@ -27,7 +27,7 @@ void fatal(char*);
 int
 main(int argc, char* argv[])
 {
-  char *serv_IP, input_file;
+  char *serv_IP, *input_file;
   int serv_port, tick_size;
   //
   int N;
