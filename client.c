@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h> // close()
+#include <unistd.h>    // close()
 #include <errno.h>
 #include <arpa/inet.h> // inet_addr()
 #include <getopt.h>    // getopt()
