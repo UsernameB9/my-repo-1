@@ -13,8 +13,8 @@
 #include <sys/time.h>
 #include <time.h>
 
-#define MAX_TICK 700
-#define MAX_LINE 4096
+#define MAX_TICK   700
+#define MAX_LINE   4096
 #define MAX_MEMORY 25000000.0
 
 void getCmdOptions(int argc, char* argv[], char**, int*, char**, int*);
@@ -22,9 +22,11 @@ void usageError(char*);
 bool readSpecFile(char*, unsigned int**, unsigned int**, int*);
 void
 sendPeriodic(int, unsigned int*, unsigned int*, int, int, struct sockaddr_in);
-void
-sendMessage(unsigned int len, int sockfd, struct sockaddr_in serv_addr,
-            int tick_n, int i);
+void sendMessage(unsigned int len,
+                 int sockfd,
+                 struct sockaddr_in serv_addr,
+                 int tick_n,
+                 int i);
 static char* rand_string(char*, size_t);
 void fatal(char*);
 
@@ -137,7 +139,7 @@ sendPeriodic(int tick_size,
   int tick_n, i;
   struct timeval tp;
 
-  /* 
+  /*
    * main_arr [max_period x N] – 2-dimensional array
    * The arrays main_arr[main_tn_index], ..., main_arr[max_period-1],
    * main_arr[0], ..., main_arr[main_tn_index-1] correspond to the
@@ -147,7 +149,7 @@ sendPeriodic(int tick_size,
    * divisible by period[i].
    */
   size_t* main_arr;
-  /* 
+  /*
    * main_lengths [max_period] – array of lengths of the lists
    * main_arr[0], ..., main_arr[max_period-1] (from 0 to N)
    */
@@ -181,9 +183,9 @@ sendPeriodic(int tick_size,
   }
 
   // O(1) algorithm
-  if ( !(main_arr = malloc(sizeof(size_t) * max_period * N)) )
+  if( !(main_arr = malloc(sizeof(size_t) * max_period * N)) )
     fatal("client: Virtual memory exhausted");
-  if ( !(main_lengths = calloc(max_period, sizeof(size_t))) )
+  if( !(main_lengths = calloc(max_period, sizeof(size_t))) )
     fatal("client: Virtual memory exhausted");
   // Initial filling of main_arr
   for( j = 0; j < N; j++ ) {
@@ -236,10 +238,10 @@ sendPeriodic(int tick_size,
 // Sends a random message of length len to the server
 void
 sendMessage(unsigned int len,
-             int sockfd,
-             struct sockaddr_in serv_addr,
-             int tick_n,
-             int i)
+            int sockfd,
+            struct sockaddr_in serv_addr,
+            int tick_n,
+            int i)
 {
   static char msg[MAX_LINE];
   int n;
@@ -249,8 +251,8 @@ sendMessage(unsigned int len,
   n = sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM,
              (const struct sockaddr*)&serv_addr, sizeof(serv_addr));
   if( n < 0 ) {
-    fprintf(stderr, "client: sendto (tick# %d, line# %d, len = %d): ",
-            tick_n, i + 1, len);
+    fprintf(stderr, "client: sendto (tick# %d, line# %d, len = %d): ", tick_n,
+            i + 1, len);
     perror("");
     exit(EXIT_FAILURE);
   }
