@@ -15,12 +15,16 @@
 
 #define MAX_TICK 700
 #define MAX_LINE 4096
+#define MAX_MEMORY 25000000.0
 
 void getCmdOptions(int argc, char* argv[], char**, int*, char**, int*);
 void usageError(char*);
 bool readSpecFile(char*, unsigned int**, unsigned int**, int*);
 void
 sendPeriodic(int, unsigned int*, unsigned int*, int, int, struct sockaddr_in);
+void
+sendMessage(unsigned int len, int sockfd, struct sockaddr_in serv_addr,
+            int tick_n, int i);
 static char* rand_string(char*, size_t);
 void fatal(char*);
 
@@ -130,32 +134,125 @@ sendPeriodic(int tick_size,
   struct timespec request = { (time_t)(tick_size / 1000),
                               (long int)(tick_size % 1000) * 1000000L },
                   remn;
-  char msg[MAX_LINE];
-  int tick_n, i, n;
+  int tick_n, i;
   struct timeval tp;
+
+  /* 
+   * main_arr [max_period x N] – 2-dimensional array
+   * The arrays main_arr[main_tn_index], ..., main_arr[max_period-1],
+   * main_arr[0], ..., main_arr[main_tn_index-1] correspond to the
+   * tick numbers tick_n, ..., tick_n + max_period - 1.
+   * They represent lists of indexes from {0,1,...,N-1}: namely, i is in
+   * the list corresponding to the smallest number, not less than tick_n,
+   * divisible by period[i].
+   */
+  size_t* main_arr;
+  /* 
+   * main_lengths [max_period] – array of lengths of the lists
+   * main_arr[0], ..., main_arr[max_period-1] (from 0 to N)
+   */
+  size_t* main_lengths;
+  // main_tn_index – index in main_arr, corresponding to tick_n
+  size_t main_tn_index = 0;
+  size_t index, j, k, m;
+  unsigned int max_period = 1;
+
   // Seed random generator
   gettimeofday(&tp, NULL);
   srand(tp.tv_usec);
 
-  for( tick_n = 1; tick_n <= MAX_TICK; tick_n++ ) {
-    nanosleep(&request, &remn);
-    // Find out which periods divide the tick number
-    for( i = 0; i < N; i++ ) {
-      if( tick_n % periods[i] == 0 ) {
-        // Generate a message of length lens[i]
-        rand_string(msg, lens[i]);
-        // Send the message
-        n = sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM,
-                   (const struct sockaddr*)&serv_addr, sizeof(serv_addr));
-        if( n < 0 ) {
-          fprintf(stderr, "client: sendto (tick# %d, line# %d,\
- len = %d): ",
-                  tick_n, i + 1, lens[i]);
-          perror("");
-          exit(EXIT_FAILURE);
-        }
+  // Find the maximum period
+  for( i = 0; i < N; i++ ) {
+    if( periods[i] > max_period ) {
+      max_period = periods[i];
+    }
+  }
+  // Simple algorithm
+  if( (float)max_period * (float)N > MAX_MEMORY ) {
+    for( tick_n = 1; tick_n <= MAX_TICK; tick_n++ ) {
+      nanosleep(&request, &remn);
+      // Find out which periods divide the tick number
+      for( i = 0; i < N; i++ ) {
+        if( tick_n % periods[i] == 0 )
+          sendMessage(lens[i], sockfd, serv_addr, tick_n, i);
       }
     }
+    return;
+  }
+
+  // O(1) algorithm
+  if ( !(main_arr = malloc(sizeof(size_t) * max_period * N)) )
+    fatal("client: Virtual memory exhausted");
+  if ( !(main_lengths = calloc(max_period, sizeof(size_t))) )
+    fatal("client: Virtual memory exhausted");
+  // Initial filling of main_arr
+  for( j = 0; j < N; j++ ) {
+    index = (size_t)(periods[j] - 1);
+    main_arr[index * N + main_lengths[index]] = j;
+    main_lengths[index]++;
+  }
+  /*for( index = 0; index < max_period; index++ ) {
+    printf("main_lengths[%lu] = %lu\n", index, main_lengths[index]);
+  }
+  printf("\n");
+  for( index = 0; index < max_period; index++ ) {
+    printf("main_arr[%lu] = [ ", index);
+    for( j = 0; j < main_lengths[index]; j++ ) {
+      printf("%lu", main_arr[index * N + j]);
+      if( j < main_lengths[index] - 1 ) {
+        printf(", ");
+      }
+      else {
+        printf(" ");
+      }
+    }
+    printf("]\n");
+  }*/
+
+  // Main loop
+  for( tick_n = 1; tick_n <= MAX_TICK; tick_n++ ) {
+    nanosleep(&request, &remn);
+    // Remember and zero main_lengths[main_tn_index]
+    m = main_lengths[main_tn_index];
+    main_lengths[main_tn_index] = 0;
+    // Process indexes in main_arr[main_tn_index]
+    for( k = 0; k < m; k++ ) {
+      i = main_arr[main_tn_index * N + k];
+      // Send a message
+      sendMessage(lens[i], sockfd, serv_addr, tick_n, i);
+      index = (main_tn_index + periods[i]) % max_period;
+      // Update main_arr
+      main_arr[index * N + main_lengths[index]] = i;
+      main_lengths[index]++;
+    }
+    // Update main_tn_index
+    main_tn_index = (main_tn_index + 1) % max_period;
+  }
+  free(main_arr);
+  free(main_lengths);
+}
+
+
+// Sends a random message of length len to the server
+void
+sendMessage(unsigned int len,
+             int sockfd,
+             struct sockaddr_in serv_addr,
+             int tick_n,
+             int i)
+{
+  static char msg[MAX_LINE];
+  int n;
+  // Generate a message of length len
+  rand_string(msg, len);
+  // Send the message
+  n = sendto(sockfd, (const char*)msg, strlen(msg), MSG_CONFIRM,
+             (const struct sockaddr*)&serv_addr, sizeof(serv_addr));
+  if( n < 0 ) {
+    fprintf(stderr, "client: sendto (tick# %d, line# %d, len = %d): ",
+            tick_n, i + 1, len);
+    perror("");
+    exit(EXIT_FAILURE);
   }
 }
 
