@@ -193,23 +193,6 @@ sendPeriodic(int tick_size,
     main_arr[index * N + main_lengths[index]] = j;
     main_lengths[index]++;
   }
-  /*for( index = 0; index < max_period; index++ ) {
-    printf("main_lengths[%lu] = %lu\n", index, main_lengths[index]);
-  }
-  printf("\n");
-  for( index = 0; index < max_period; index++ ) {
-    printf("main_arr[%lu] = [ ", index);
-    for( j = 0; j < main_lengths[index]; j++ ) {
-      printf("%lu", main_arr[index * N + j]);
-      if( j < main_lengths[index] - 1 ) {
-        printf(", ");
-      }
-      else {
-        printf(" ");
-      }
-    }
-    printf("]\n");
-  }*/
 
   // Main loop
   for( tick_n = 1; tick_n <= MAX_TICK; tick_n++ ) {
